@@ -44,6 +44,7 @@ jobs:
           ETL_UPDATE_URL: ${{ vars.ETL_UPDATE_URL }}              # optional: Apps Script web-app URL (update button)
           ETL_UPDATE_KEY: ${{ secrets.ETL_UPDATE_KEY }}
           ETL_EDIT_KEY: ${{ secrets.ETL_EDIT_KEY }}                 # optional: corrections / new projects (admin)
+          ETL_TEST_EDIT_KEY: ${{ secrets.ETL_TEST_EDIT_KEY }}       # optional: editing in the hidden test mode
           SHORT: ${{ vars.ALLOW_SHORT_PASSWORDS == 'true' && '--allow-short-passwords' || '' }}
         run: python -m etl_dash sync --out dist $SHORT
       - uses: actions/upload-pages-artifact@v3
