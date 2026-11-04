@@ -23,6 +23,13 @@ from .validate import validate
 REPO = Path(__file__).resolve().parent.parent
 
 
+def notice(level, message):
+    """A data-free message; on GitHub Actions as a warning/error annotation (readable in the run summary)."""
+    print(message, file=sys.stderr)
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print(f"::{level} title=ETL dashboard::" + " ".join(message.splitlines()), flush=True)
+
+
 def fail(message):
     """Stop with a data-free message; on GitHub Actions also as an error annotation (readable in the run summary)."""
     if os.environ.get("GITHUB_ACTIONS") == "true":
@@ -87,6 +94,9 @@ def update_config():
     -> (config or None, origins allowed in the page's connect-src)."""
     url, key = os.environ.get("ETL_UPDATE_URL"), os.environ.get("ETL_UPDATE_KEY")
     if not (url and key):
+        if url or key or os.environ.get("ETL_EDIT_KEY"):   # half-configured: say what is missing (names only)
+            missing = [n for n, v in (("ETL_UPDATE_URL (variable)", url), ("ETL_UPDATE_KEY (secret)", key)) if not v]
+            notice("warning", "Update button and website editing are OFF: missing " + " and ".join(missing))
         return None, ()
     o = urlsplit(url)
     origin = f"{o.scheme}://{o.netloc}"

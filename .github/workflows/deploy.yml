@@ -41,7 +41,7 @@ jobs:
           ETL_ADMIN_PASSWORD: ${{ secrets.ETL_ADMIN_PASSWORD }}
           ETL_TEST_PASSWORD: ${{ secrets.ETL_TEST_PASSWORD }}     # optional: hidden test mode
           ETL_TEST_DRIVE_FOLDER_ID: ${{ secrets.ETL_TEST_DRIVE_FOLDER_ID }}   # optional: the TEST overview folder in Drive
-          ETL_UPDATE_URL: ${{ vars.ETL_UPDATE_URL }}              # optional: Apps Script web-app URL (update button)
+          ETL_UPDATE_URL: ${{ vars.ETL_UPDATE_URL || secrets.ETL_UPDATE_URL }}            # optional: Apps Script web-app URL (update button)
           ETL_UPDATE_KEY: ${{ secrets.ETL_UPDATE_KEY }}
           ETL_EDIT_KEY: ${{ secrets.ETL_EDIT_KEY }}                 # optional: corrections / new projects (admin)
           ETL_TEST_EDIT_KEY: ${{ secrets.ETL_TEST_EDIT_KEY }}       # optional: editing in the hidden test mode
