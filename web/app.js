@@ -134,6 +134,13 @@ async function setupUpdate() {
 
 // ---------------------------------------------------------------- corrections (admin only, phase 6b)
 const canEdit = () => Boolean(session?.admin?.edit_key && session.data.update?.url);
+/** Admin logged in, but the site has no edit endpoint yet (Apps Script companion not set up): say so. */
+function editingOffNote() {
+  if (canEdit() || !session?.admin) return "";
+  return `<div class="banner">Editing on the website is not switched on yet. It needs the Google Apps Script companion
+    (setup guide, step 4) and the GitHub settings <code>ETL_UPDATE_URL</code> and <code>ETL_EDIT_KEY</code>.
+    Until then, edit the overview documents directly in Drive.</div>`;
+}
 const canEditProject = (p) => canEdit() && p?.has_overview_doc && !/^template\b/i.test(p.source?.file || "");   // never write into the template
 const FIELD_HINT = { name: "Project acronym (it is also the start of the document name).", status: "Proposal / Active / Finished / Rejected.",
   duration: "MM/YYYY-MM/YYYY; add (tbc) while not final.", funding: "Amount for PIK and the part for ETL, with currency (e.g. 500k EUR).",
@@ -710,7 +717,7 @@ function renderFilters() {
   for (const b of $$("button[data-set]", el)) b.addEventListener("click", () => setState({ [b.dataset.set]: b.dataset.value }));
   $("#group", el)?.addEventListener("change", (e) => setState({ group: e.target.value }));
 }
-const layer = () => state.layer || (D.demands.length ? "demands" : "focus");
+const layer = () => state.layer || "demands";   // sector demands by default; focus topics on request
 
 // ---------------------------------------------------------------- tooltip
 function bindTips(root) {
@@ -893,7 +900,7 @@ const COLUMNS = [
   ["funding", "ETL funding", (p) => p.funding?.etl ?? -1], ["tasks", "Tasks", (p) => p.tasks.length], ["issues", "Warnings", (p) => warnings(p)],
 ];
 function viewProjects(root) {
-  root.innerHTML = `<section class="card"><div class="card-head"><h2>Master list</h2>
+  root.innerHTML = `${editingOffNote()}<section class="card"><div class="card-head"><h2>Master list</h2>
     ${canEdit() ? `<button type="button" class="btn" id="new-project">+ New project</button>` : ""}
     <label><span class="sr-only">Search projects</span><input type="search" id="q" placeholder="Search name, title, people…" value="${esc(state.q)}"></label></div>
     <div id="list"></div></section>`;
