@@ -215,6 +215,7 @@ def test_people_tab_add_and_edit(server, browser, sim_dir):
     page.fill(".modal input[name=editor]", "Test Editor")
     assert submit(page) == ""
     quinn = next(p for p in read_people_table(find(sim_dir / "overviews")) if p["id"] == "QX")
+    assert find(sim_dir / "overviews").parent == sim_dir                     # the table lives in the root
     assert quinn["sectors"] == ["Model core", "RSE"] and quinn["email"] == "quinn.xu@example.org"
     page.click("button[data-person][aria-label='Edit Mara Keller']")
     page.fill(".modal input[name=email]", "mara@example.org")

@@ -1,4 +1,5 @@
-"""The group's own people table, 'ETL people.xlsx' (or a Google Sheet of that name) in the root of the overview folder.
+"""The group's own people table, 'ETL people.xlsx' (or a Google Sheet of that name) in the root of the data folder,
+next to overviews/, template/ and project_descriptions/.
 
 It is the single source of names, initials, emails and groups. Columns (row 1 = header, one person per row, the Person ID must be unique):
     Person ID | First name | Last name | Email | PIK team(s) | Sector group(s) | Topics | Active | Aliases
@@ -23,9 +24,19 @@ FORMULA = re.compile(r"^[=+\-@]")
 
 
 def find(folder):
-    """The people table in a folder (case-insensitive name), or None."""
+    """The people table for an overview folder: in its parent (the data-folder root), else in the folder itself."""
     folder = Path(folder)
-    return next((p for p in sorted(folder.glob("*.xlsx")) if p.name.lower() == FILE_NAME.lower()), None) if folder.is_dir() else None
+    for place in (folder.parent, folder):
+        if place.is_dir():
+            hit = next((p for p in sorted(place.glob("*.xlsx")) if p.name.lower() == FILE_NAME.lower()), None)
+            if hit:
+                return hit
+    return None
+
+
+def path_for(root):
+    """Where a new people table is created: the root of the data folder."""
+    return find(Path(root) / "overviews") or Path(root) / FILE_NAME
 
 
 def _split(v):
@@ -108,7 +119,7 @@ def save_person(folder, person, old_id=None, old=None, seed=None):
     """Add (old_id None) or update one person in '<folder>/ETL people.xlsx'.
     old = the record as the dashboard showed it: refused if the table row changed since (concurrent edit).
     seed = people to start the table with if it does not exist yet. -> (status, message)."""
-    path = find(folder) or Path(folder) / FILE_NAME
+    path = path_for(folder)
     people = read_people_table(path) if path.exists() else [dict(p) for p in (seed or [])]
     person = clean_person(person)
     ids = [p["id"] for p in people]

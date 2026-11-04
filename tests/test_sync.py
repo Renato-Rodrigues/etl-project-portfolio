@@ -48,7 +48,7 @@ def test_fetch_drive_exports_native_and_downloads_office_files(tmp_path):
     assert [d["file"] for d in m["docs"]] == ["ALPHA - Project overview.docx", "BETA_old - Project overview.docx"]
     assert (tmp_path / "overviews" / "ALPHA - Project overview.docx").read_bytes() == b"exported:" + drive.DOCX.encode()
     assert (tmp_path / "overviews" / "BETA_old - Project overview.docx").read_bytes() == b"media"
-    assert (tmp_path / "overviews" / "ETL people.xlsx").read_bytes() == b"exported:" + drive.XLSX.encode()
+    assert (tmp_path / "ETL people.xlsx").read_bytes() == b"exported:" + drive.XLSX.encode()
     assert m["docs"][0]["url"] == "https://docs.google.com/document/d/d1/edit" and m["docs"][0]["native"]
     assert not m["docs"][1]["native"] and m["people"]["native"]
     listing = [p for u, p in http.calls if u == drive.API]
@@ -73,7 +73,7 @@ def sim(tmp_path_factory):
 
 def test_fetch_local_copies_the_simulated_drive(sim, tmp_path):
     m = drive.fetch(tmp_path, env={"ETL_SOURCE": "local", "ETL_LOCAL_DIR": str(sim)})
-    assert m["source"] == "local" and len(m["docs"]) == 8 and (tmp_path / "overviews" / "ETL people.xlsx").exists()
+    assert m["source"] == "local" and len(m["docs"]) == 8 and (tmp_path / "ETL people.xlsx").exists()
 
 
 def test_sync_cli_local(sim, tmp_path):
@@ -85,3 +85,23 @@ def test_sync_cli_local(sim, tmp_path):
     assert run.returncode == 0, run.stderr
     assert "fetched 8 docs" in run.stdout and "test-mode=on" in run.stdout and "leak-scan=clean" in run.stdout
     assert (tmp_path / "dist" / "index.html").exists()
+
+
+class FakeNestedDrive(FakeDrive):
+    """Data-folder root with 'ETL people' and an 'overviews' subfolder (plus template/, which is ignored)."""
+
+    def get(self, url, params=None):
+        if url == drive.API and "'R' in parents" in params["q"]:
+            return FakeResponse({"files": [dict(id="s1", name="ETL people", mimeType=drive.GSHEET, modifiedTime="t3"),
+                                           dict(id="O", name="overviews", mimeType=drive.FOLDER, modifiedTime="t0"),
+                                           dict(id="T", name="template", mimeType=drive.FOLDER, modifiedTime="t0"),
+                                           dict(id="x", name="stray doc", mimeType=drive.GDOC, modifiedTime="t0")]})
+        if url == drive.API and "'O' in parents" in params["q"]:
+            return FakeResponse({"files": [dict(id="d1", name="ALPHA - Project overview", mimeType=drive.GDOC, modifiedTime="t1")]})
+        return super().get(url, params)
+
+
+def test_fetch_drive_root_layout(tmp_path):
+    m = drive.fetch(tmp_path, env={"ETL_SOURCE": "oauth", "DRIVE_FOLDER_ID": "R"}, http=FakeNestedDrive())
+    assert [d["file"] for d in m["docs"]] == ["ALPHA - Project overview.docx"]        # only docs from overviews/
+    assert (tmp_path / "ETL people.xlsx").exists() and m["people"]["id"] == "s1"

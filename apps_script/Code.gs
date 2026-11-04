@@ -10,8 +10,8 @@
  *     Same JSON API and rules as the local dev server (python -m etl_dash serve, etl_dash/writeback.py, projectdocs.py).
  *
  * Script properties (Project settings > Script properties) – never put them in the code:
- *   FOLDER_ID               Drive folder with the project-overview docs
- *   DESCRIPTIONS_FOLDER_ID  folder 'project_descriptions' (one subfolder per project; proposals go there)
+ *   ROOT_FOLDER_ID          the data folder (= DRIVE_FOLDER_ID): 'ETL people' sheet + subfolders 'overviews' and
+ *                           'project_descriptions' (one subfolder per project; proposals go there)
  *   GITHUB_REPO             owner/name
  *   GITHUB_WORKFLOW         deploy.yml
  *   GITHUB_TOKEN            fine-grained token, this repository only, permission "Actions: Read and write"
@@ -19,7 +19,7 @@
  *   EDIT_KEY_SHA256         hex SHA-256 of ETL_EDIT_KEY (the key itself is only in the admin-encrypted page block)
  *   TEST_EDIT_KEY_SHA256    optional: hex SHA-256 of ETL_TEST_EDIT_KEY – this key can only write to the TEST folders
  *   EDIT_LOG_SHEET_ID       a Google Sheet; one row per change (time, editor, file, location, old, new, result)
- *   TEST_FOLDER_ID, TEST_DESCRIPTIONS_FOLDER_ID   optional: where edits made in the hidden test mode go
+ *   TEST_ROOT_FOLDER_ID     optional: the TEST data folder (= ETL_TEST_DRIVE_FOLDER_ID); edits made in test mode go there
  * Setup: run setup() once (installs the 5-minute trigger), then Deploy > New deployment > Web app,
  *        "Execute as: Me", "Who has access: Anyone"; put the web-app URL into the GitHub variable ETL_UPDATE_URL.
  * Only native Google Docs are edited; rows are only appended (tasks, a missing overview row); nothing is deleted.
@@ -35,13 +35,28 @@ function setup() {
   PROPS.setProperty("LAST_SIGNATURE", signature_());
 }
 
-/** Ids + last-modified times of every file in the overview folder. */
+/** The data folder's parts: root (people table), overviews/ (docs), project_descriptions/ (proposals). */
+function subfolder_(root, name, create) {
+  const it = root.getFoldersByName(name);
+  if (it.hasNext()) return it.next();
+  if (create) return root.createFolder(name);
+  throw new Error("the data folder has no '" + name + "' subfolder");
+}
+function layout_(rootId) {
+  const root = DriveApp.getFolderById(rootId);
+  return { root: rootId, docs: subfolder_(root, "overviews", false).getId(),
+           descriptions: subfolder_(root, "project_descriptions", true).getId() };
+}
+
+/** Ids + last-modified times of the overview docs and of the root (people table). */
 function signature_() {
-  const parts = [];
-  const files = DriveApp.getFolderById(PROPS.getProperty("FOLDER_ID")).getFiles();
-  while (files.hasNext()) {
-    const f = files.next();
-    parts.push(f.getId() + ":" + f.getLastUpdated().getTime());
+  const parts = [], f = layout_(PROPS.getProperty("ROOT_FOLDER_ID"));
+  for (const id of [f.docs, f.root]) {
+    const files = DriveApp.getFolderById(id).getFiles();
+    while (files.hasNext()) {
+      const x = files.next();
+      parts.push(x.getId() + ":" + x.getLastUpdated().getTime());
+    }
   }
   return parts.sort().join("|");
 }
@@ -131,10 +146,10 @@ const OVERVIEW_LABELS = [/^name/, /^duration/, /^funding/, /^overallprojectlead/
 function foldersForKey_(key) {
   const h = key ? sha256Hex_(String(key)) : "";
   if (h && h === PROPS.getProperty("EDIT_KEY_SHA256")) {
-    return { docs: PROPS.getProperty("FOLDER_ID"), descriptions: PROPS.getProperty("DESCRIPTIONS_FOLDER_ID") };
+    return layout_(PROPS.getProperty("ROOT_FOLDER_ID"));
   }
-  if (h && h === PROPS.getProperty("TEST_EDIT_KEY_SHA256") && PROPS.getProperty("TEST_FOLDER_ID")) {
-    return { docs: PROPS.getProperty("TEST_FOLDER_ID"), descriptions: PROPS.getProperty("TEST_DESCRIPTIONS_FOLDER_ID") };
+  if (h && h === PROPS.getProperty("TEST_EDIT_KEY_SHA256") && PROPS.getProperty("TEST_ROOT_FOLDER_ID")) {
+    return layout_(PROPS.getProperty("TEST_ROOT_FOLDER_ID"));
   }
   return null;
 }
@@ -257,7 +272,7 @@ function editCells_(body, f) {
   return { ok, results, message: ok ? "Saved. The dashboard is being rebuilt." : "Some changes were not saved." };
 }
 
-// ---------------------------------------------------------------- people table ('ETL people' Google Sheet in the overview folder)
+// ---------------------------------------------------------------- people table ('ETL people' Google Sheet in the data-folder root)
 const PEOPLE_COLS = [["id", "Person ID"], ["first", "First name"], ["last", "Last name"], ["email", "Email"], ["teams", "PIK team(s)"],
   ["sectors", "Sector group(s)"], ["topics", "Topics"], ["active", "Active"], ["aliases", "Aliases"]];
 
@@ -275,8 +290,8 @@ function savePerson_(body, f) {
   if (!/^[A-Za-z][A-Za-z.\-]{1,7}$/.test(String(p.id || ""))) throw new Error("Person ID: 2–8 letters (initials)");
   if (!String(p.first || "").trim() || !String(p.last || "").trim()) throw new Error("first and last name are required");
   if (p.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(p.email)) throw new Error("email address looks invalid");
-  const files = DriveApp.getFolderById(f.docs).getFilesByName("ETL people");
-  if (!files.hasNext()) throw new Error("create the 'ETL people' Google Sheet in the overview folder first (upload ETL people.xlsx as a Google Sheet)");
+  const files = DriveApp.getFolderById(f.root).getFilesByName("ETL people");
+  if (!files.hasNext()) throw new Error("create the 'ETL people' Google Sheet in the root of the data folder first (upload ETL people.xlsx as a Google Sheet)");
   const file = files.next();
   if (file.getMimeType() !== MimeType.GOOGLE_SHEETS) throw new Error("'ETL people' must be a native Google Sheet");
   const sheet = SpreadsheetApp.openById(file.getId()).getSheets()[0], values = sheet.getDataRange().getValues();

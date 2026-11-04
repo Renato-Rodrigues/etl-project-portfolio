@@ -2,7 +2,7 @@
 
     python -m etl_dash make-testdata --out ../local_drive_sim
 writes  <out>/overviews/*.docx   (template v1 old/current, v2, sub-project, filled template, outdated doc)
-        <out>/overviews/ETL people.xlsx   (the people table)
+        <out>/ETL people.xlsx   (the people table, in the root of the data folder)
 All names, projects, amounts and texts are invented.
 """
 from pathlib import Path
@@ -179,7 +179,7 @@ def make_testdata(out):
                          [("T1", "Hydropower flexibility", "6", "06/28", "LO", ""), ("T9", "Dropped idea", "", "", "", "")], [], None)],
               title="Project overview - template proposal")
 
-    # the group's own people table (root of the overview folder); 'Nadia Roth' makes 'Roth' ambiguous on purpose
+    # the group's own people table (root of the data folder); 'Nadia Roth' makes 'Roth' ambiguous on purpose
     from .sources.people_table import write_people_table
     table = [dict(id=i, first=f, last=l, email=f"{f.lower()}.{l.lower()}@example.org", teams=[t for t in teams.split(", ") if t],
                   sectors=sec, topics=top, active=act, aliases=al)
@@ -196,5 +196,5 @@ def make_testdata(out):
                  ("AM", "Alex", "Moreau", "RSE", ["RSE"], "software", True, []),
                  ("NaRo", "Nadia", "Roth", "ETL", ["Transport"], "transport", True, []),
                  ("MaKe", "Max", "Kessler", "ETL", [], "", False, ["Maxi"])]]
-    write_people_table(docs / "ETL people.xlsx", table)
+    write_people_table(out / "ETL people.xlsx", table)
     return out

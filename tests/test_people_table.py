@@ -31,10 +31,10 @@ def test_missing_people_table_is_reported(sim):
     assert data["people_source"] == "none" and any(i["code"] == "no_people_table" for i in data["issues"])
 
 def test_save_person_add_update_conflict(sim):
-    folder = sim / "overviews"
+    folder = sim
     assert save_person(folder, dict(id="QX", first="Quinn", last="Xu", email="q@x.org"))[0] == "ok"
     assert save_person(folder, dict(id="QX", first="Q", last="Dup"))[0] == "invalid"            # ID taken
-    old = next(p for p in read_people_table(find(folder)) if p["id"] == "QX")
+    old = next(p for p in read_people_table(find(folder / "overviews")) if p["id"] == "QX")
     assert save_person(folder, dict(old, email="new@x.org"), "QX", old)[0] == "ok"
     assert save_person(folder, dict(old, email="other@x.org"), "QX", old)[0] == "conflict"     # stale
     assert save_person(folder, dict(id="ZZ", first="A", last="B", email="not-an-email"))[0] == "invalid"

@@ -1,10 +1,10 @@
 """Fetch the overview folder (docs + people table) into a temporary folder, from one of three sources:
 
-  local            ETL_LOCAL_DIR = folder with overviews/ (docs + 'ETL people.xlsx'), e.g. the simulation folder
+  local            ETL_LOCAL_DIR = data folder: overviews/ (docs) + 'ETL people.xlsx', e.g. the simulation folder
   oauth            runs as a Google user: GOOGLE_OAUTH_CLIENT_JSON + GOOGLE_OAUTH_REFRESH_TOKEN
   service_account  GOOGLE_SA_KEY (service-account JSON key)
 
-Drive settings: DRIVE_FOLDER_ID (the overview folder: overview docs + the 'ETL people' table),
+Drive settings: DRIVE_FOLDER_ID (the data-folder root: 'ETL people' table + overviews/ subfolder),
 DRIVE_EDIT_LOG_ID (optional: the companion's edit-log sheet). Google Docs/Sheets are exported as .docx/.xlsx/.csv;
 uploaded Office files are downloaded as they are. Read-only scope.
 Returns a manifest (file ids, names, modified times, links) used for change detection and links in the dashboard.
@@ -88,19 +88,28 @@ def fetch_log(http, log_id, out):
         (out / "edit-log.csv").write_bytes(r.content)
 
 
+FOLDER = "application/vnd.google-apps.folder"
+
+
 def fetch_drive(http, folder_id, out):
+    """folder_id = the data-folder root: 'ETL people' in it, the docs in its 'overviews' subfolder. (If it points
+    directly at a folder of docs, that folder is used and the people table is looked for there.)"""
     docs = out / "overviews"
     docs.mkdir(parents=True, exist_ok=True)
     manifest = {"source": "drive", "docs": [], "people": None}
-    for f in list_folder(http, folder_id):
+    root = list_folder(http, folder_id)
+    sub = next((f for f in root if f["mimeType"] == FOLDER and f["name"].strip().lower() == "overviews"), None)
+    entries = root + (list_folder(http, sub["id"]) if sub else [])
+    for f in entries:
         stem = re.sub(r"\.xlsx$", "", f["name"], flags=re.I).strip().lower()
         if f["mimeType"] in (GSHEET, XLSX) and stem == "etl people":
-            download(http, f, docs / "ETL people.xlsx")   # the people table, in the root of the overview folder
-            manifest["people"] = dict(file="ETL people.xlsx", id=f["id"], modified=f["modifiedTime"],
-                                      native=f["mimeType"] == GSHEET, url=doc_url(f["id"], f["mimeType"]))
+            if not manifest["people"]:
+                download(http, f, out / "ETL people.xlsx")   # the people table, in the root of the data folder
+                manifest["people"] = dict(file="ETL people.xlsx", id=f["id"], modified=f["modifiedTime"],
+                                          native=f["mimeType"] == GSHEET, url=doc_url(f["id"], f["mimeType"]))
             continue
-        if f["mimeType"] not in (GDOC, DOCX):
-            continue  # subfolders (e.g. _archive), PDFs, … are ignored
+        if f["mimeType"] not in (GDOC, DOCX) or (sub and f in root):
+            continue  # subfolders (template/, project_descriptions/), PDFs, … and docs outside overviews/ are ignored
         name = safe_name(f["name"], ".docx")
         download(http, f, docs / name)
         manifest["docs"].append(dict(file=name, id=f["id"], modified=f["modifiedTime"], native=f["mimeType"] == GDOC,
@@ -109,9 +118,13 @@ def fetch_drive(http, folder_id, out):
 
 
 def fetch_local(src, out):
-    """Copy a local folder laid out like the Drive setup (overviews/ with the docs and the people table)."""
+    """Copy a local folder laid out like the Drive setup (overviews/ with the docs, 'ETL people.xlsx' in the root)."""
     src = Path(src)
     shutil.copytree(src / "overviews", out / "overviews", ignore=shutil.ignore_patterns("~$*"))
+    from .people_table import find
+    table = find(src / "overviews")
+    if table:
+        shutil.copy2(table, out / "ETL people.xlsx")
     if (src / "edit-log.csv").is_file():  # changes made through the website (dev server)
         shutil.copy2(src / "edit-log.csv", out / "edit-log.csv")
     docs = [dict(file=p.name, id=None, modified=None, native=False, url=None) for p in sorted((out / "overviews").glob("*.docx"))]

@@ -11,8 +11,9 @@ drive only once everything works (step 5). The pipeline only reads; the companio
    Or upload copies of the real docs, as you prefer.
    Tip: when uploading, enable *Settings → Convert uploads* to get native Google Docs/Sheets (needed later for
    write-back; read-only syncing works with both).
-3. Note the ID of the `overviews` folder from its URL (`…/folders/<FOLDER_ID>`). Everything the dashboard reads is in
-   this folder: the overview docs and the people table (`ETL people`).
+3. Note the ID of the data folder from its URL (`…/folders/<FOLDER_ID>`). Layout:
+   `ETL people` (people table) in the root, and the subfolders `overviews/` (one doc per project), `template/` and
+   `project_descriptions/` (one subfolder per project).
 
 ## 2. Google access: use a service account (2b) unless you need to run as yourself
 
@@ -54,7 +55,8 @@ route (2a) requires a published consent screen, because Drive read access is a r
    | Name | Kind | Value |
    |---|---|---|
    | `ETL_SOURCE` | variable | `oauth` or `service_account` |
-   | `DRIVE_FOLDER_ID` | secret | the overview folder (step 1) |
+   | `DRIVE_FOLDER_ID` | secret | the data folder root (step 1) |
+   | `ETL_TEST_DRIVE_FOLDER_ID` | secret | optional: the root of the TEST data folder (hidden test mode) |
    | `DRIVE_EDIT_LOG_ID` | secret | optional: the companion's edit-log sheet, shown in the Change log tab |
    | `GOOGLE_OAUTH_CLIENT_JSON`, `GOOGLE_OAUTH_REFRESH_TOKEN` | secret | mode oauth (2a) |
    | `GOOGLE_SA_KEY` | secret | mode service_account (2b): the whole JSON |
@@ -72,14 +74,14 @@ route (2a) requires a published consent screen, because Drive read access is a r
 
 1. <https://script.google.com> → New project `ETL dashboard companion`. Paste `apps_script/Code.gs`. In
    *Project settings*, show `appsscript.json` and paste `apps_script/appsscript.json`.
-2. *Project settings → Script properties*: `FOLDER_ID` (the same folder as `DRIVE_FOLDER_ID`), `GITHUB_REPO` (`owner/name`),
+2. *Project settings → Script properties*: `ROOT_FOLDER_ID` (the same folder as `DRIVE_FOLDER_ID`), optionally
+   `TEST_ROOT_FOLDER_ID` (= `ETL_TEST_DRIVE_FOLDER_ID`), `GITHUB_REPO` (`owner/name`),
    `GITHUB_WORKFLOW` (`deploy.yml`), `GITHUB_TOKEN` and `UPDATE_KEY_SHA256`.
    - `GITHUB_TOKEN` is a fine-grained token for this repository only, with "Actions: Read and write".
    - For `UPDATE_KEY_SHA256`:
      `python -c "import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest())" <ETL_UPDATE_KEY>`
    For corrections and new projects, also set `EDIT_KEY_SHA256` (hash of `ETL_EDIT_KEY`, same command),
-   `DESCRIPTIONS_FOLDER_ID` (a `project_descriptions` folder next to `overviews`; proposals go into one subfolder per
-   project) and `EDIT_LOG_SHEET_ID` (an empty Google Sheet used as the edit log). Editing works on **native Google Docs**
+   `EDIT_LOG_SHEET_ID` (an empty Google Sheet used as the edit log). Editing works on **native Google Docs**
    only: convert uploaded .docx files (File → Save as Google Docs) first.
 3. Run `setup` once (authorize when asked). This installs the 5-minute change watcher.
 4. *Deploy → New deployment → Web app*: Execute as **Me**, Who has access **Anyone**. Copy the URL into the GitHub
@@ -87,6 +89,6 @@ route (2a) requires a published consent screen, because Drive read access is a r
 
 ## 5. Moving to the shared drive (later, after your go-ahead)
 
-Change `DRIVE_FOLDER_ID` (and `ETL_SOURCE=service_account` with step 2b), update the companion's `FOLDER_ID`,
+Change `DRIVE_FOLDER_ID` (and `ETL_SOURCE=service_account` with step 2b), update the companion's `ROOT_FOLDER_ID`,
 run the workflow. The PROD owner of the companion and the GitHub token should be a
 functional account rather than a personal one.

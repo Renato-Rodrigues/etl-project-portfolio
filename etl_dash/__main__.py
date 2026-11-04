@@ -32,14 +32,14 @@ def safe_out(path, allowed):
 
 
 def load(docs):
-    """Projects from the overview docs in the folder, people from 'ETL people.xlsx' next to them."""
+    """Projects from the overview docs in the folder, people from 'ETL people.xlsx' in the data-folder root."""
     table = find_people(docs)
     data = validate(build([read_doc(p) for p in list_docs(docs)], read_people_table(table) if table else []))
     data["people_source"] = "table" if table else "none"
     if not table:
         data["issues"].append(dict(scope="people", project=None, field="ETL people table", severity="warning",
                                    code="no_people_table", message="No people table found in the overview folder.",
-                                   hint="Add 'ETL people.xlsx' (or a Google Sheet 'ETL people') next to the overview docs."))
+                                   hint="Add 'ETL people.xlsx' (or a Google Sheet 'ETL people') to the root of the data folder."))
     return data
 
 
@@ -141,6 +141,21 @@ def add_links(data, manifest):
     return data
 
 
+def explain_fetch_error(e, what):
+    """A clear, data-free reason for a failed Drive fetch (CI logs are public)."""
+    code = getattr(getattr(e, "response", None), "status_code", None)
+    hints = {401: "the Google credentials were rejected – check GOOGLE_SA_KEY / the OAuth secrets",
+             403: "no permission – share the folder with the service account's email (Viewer) and enable the Drive API",
+             404: "folder not found – check the folder ID, and that it is shared with the service account"}
+    if isinstance(e, KeyError):
+        return f"{what}: the setting {e} is missing (GitHub secret or variable)"
+    if isinstance(e, ValueError) and "Could not deserialize" in str(e) or "json" in type(e).__name__.lower():
+        return f"{what}: GOOGLE_SA_KEY is not a valid service-account JSON key (paste the whole file content)"
+    if code:
+        return f"{what}: Google Drive answered HTTP {code} – {hints.get(code, 'see the Drive API documentation')}"
+    return f"{what}: {type(e).__name__}: {str(e)[:200]}"
+
+
 def cmd_sync(args):
     """Fetch (ETL_SOURCE = local | oauth | service_account) into a temp folder, then build. Prints counts only."""
     import tempfile
@@ -151,7 +166,10 @@ def cmd_sync(args):
     report = safe_out(args.report, ("out",)) if args.report else None
     with tempfile.TemporaryDirectory(prefix="etl-sync-") as tmp:
         tmp = Path(tmp)
-        manifest = fetch(tmp / "src")
+        try:
+            manifest = fetch(tmp / "src")
+        except Exception as e:  # noqa: BLE001 – reported without data, then the run fails
+            sys.exit("sync failed – " + explain_fetch_error(e, "reading DRIVE_FOLDER_ID"))
         data = add_links(load(tmp / "src" / "overviews"), manifest)
         data["people_file"] = manifest.get("people")
         from .writeback import read_log
@@ -160,7 +178,10 @@ def cmd_sync(args):
         if with_test:
             if os.environ.get("ETL_TEST_DRIVE_FOLDER_ID"):   # a TEST folder in Drive: editable via the companion
                 env = dict(os.environ, DRIVE_FOLDER_ID=os.environ["ETL_TEST_DRIVE_FOLDER_ID"], DRIVE_EDIT_LOG_ID="")
-                tm = fetch(tmp / "test", env=env)
+                try:
+                    tm = fetch(tmp / "test", env=env)
+                except Exception as e:  # noqa: BLE001
+                    sys.exit("sync failed – " + explain_fetch_error(e, "reading ETL_TEST_DRIVE_FOLDER_ID"))
                 tdata = add_links(load(tmp / "test" / "overviews"), tm)
                 editable = True
             else:  # a local folder (dev server) or freshly generated made-up data (read-only)
@@ -257,7 +278,7 @@ def cmd_serve(args):
             if not editor or not isinstance(body.get("person"), dict):
                 return self.reply(400, {"ok": False, "message": "editor name and person required"})
             with lock:
-                status, message = save_person(base / "overviews", body["person"], body.get("old_id"), body.get("old"))
+                status, message = save_person(base, body["person"], body.get("old_id"), body.get("old"))
                 log_edit(base / "overviews", editor, {"file": "ETL people.xlsx", "old": body.get("old_id") or "(new)",
                                                       "new": body["person"].get("id")}, status)
             if status != "ok":
