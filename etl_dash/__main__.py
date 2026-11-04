@@ -23,11 +23,18 @@ from .validate import validate
 REPO = Path(__file__).resolve().parent.parent
 
 
+def fail(message):
+    """Stop with a data-free message; on GitHub Actions also as an error annotation (readable in the run summary)."""
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print("::error title=ETL dashboard::" + " ".join(message.splitlines()), flush=True)
+    sys.exit(message)
+
+
 def safe_out(path, allowed):
     """Refuse output folders inside the (public) repo, except git-ignored ones (out/, dist/)."""
     p = Path(path).resolve()
     if p.is_relative_to(REPO) and not any(p.is_relative_to(REPO / a) for a in allowed):
-        sys.exit(f"refusing to write into the repository: {path} (use a folder outside it, or {'/ '.join(allowed)}/)")
+        fail(f"refusing to write into the repository: {path} (use a folder outside it, or {'/ '.join(allowed)}/)")
     return p
 
 
@@ -67,9 +74,9 @@ TEST_LABEL = dict(mode_badge="test data", mode_label=os.environ.get(
 def passwords_from_env(with_test):
     passwords = {k: os.environ.get(f"ETL_{k.upper()}_PASSWORD") for k in ("viewer", "admin", "test")}
     if not (passwords["viewer"] and passwords["admin"]):
-        sys.exit("set ETL_VIEWER_PASSWORD and ETL_ADMIN_PASSWORD (never pass passwords as arguments)")
+        fail("set ETL_VIEWER_PASSWORD and ETL_ADMIN_PASSWORD (never pass passwords as arguments)")
     if with_test != bool(passwords["test"]):
-        sys.exit("the test mode needs ETL_TEST_PASSWORD together with test data (and test data needs the password)")
+        fail("the test mode needs ETL_TEST_PASSWORD together with test data (and test data needs the password)")
     if not with_test:
         passwords.pop("test")
     return passwords
@@ -107,13 +114,13 @@ def publish(data, test, passwords, site, report, allow_short):
     try:
         out = build_site(data, passwords, site, admin_secrets=admin, test=test, min_length=min_length, connect=connect)
     except ValueError as e:
-        sys.exit(f"build refused: {e}")
+        fail(f"build refused: {e}")
     files = [out / f for f in SITE_FILES]
     hits = leak_scan(data, files)
     if hits:
         for f in files:  # never leave a leaking build behind (only the files this build wrote)
             f.unlink(missing_ok=True)
-        sys.exit(f"LEAK: {len(hits)} readable values found in the build output; build removed")
+        fail(f"LEAK: {len(hits)} readable values found in the build output; build removed")
     if report:
         write_report(data, report)
     size = (out / "index.html").stat().st_size
@@ -169,7 +176,7 @@ def cmd_sync(args):
         try:
             manifest = fetch(tmp / "src")
         except Exception as e:  # noqa: BLE001 – reported without data, then the run fails
-            sys.exit("sync failed – " + explain_fetch_error(e, "reading DRIVE_FOLDER_ID"))
+            fail("sync failed – " + explain_fetch_error(e, "reading DRIVE_FOLDER_ID"))
         data = add_links(load(tmp / "src" / "overviews"), manifest)
         data["people_file"] = manifest.get("people")
         from .writeback import read_log
@@ -181,7 +188,7 @@ def cmd_sync(args):
                 try:
                     tm = fetch(tmp / "test", env=env)
                 except Exception as e:  # noqa: BLE001
-                    sys.exit("sync failed – " + explain_fetch_error(e, "reading ETL_TEST_DRIVE_FOLDER_ID"))
+                    fail("sync failed – " + explain_fetch_error(e, "reading ETL_TEST_DRIVE_FOLDER_ID"))
                 tdata = add_links(load(tmp / "test" / "overviews"), tm)
                 editable = True
             else:  # a local folder (dev server) or freshly generated made-up data (read-only)

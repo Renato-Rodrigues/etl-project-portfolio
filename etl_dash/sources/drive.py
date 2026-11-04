@@ -40,7 +40,7 @@ def session(env=os.environ):
     """Authorized requests session for the configured Google mode."""
     from google.auth.transport.requests import AuthorizedSession  # optional dependency: pip install .[drive]
 
-    mode = env.get("ETL_SOURCE", "local")
+    mode = env.get("ETL_SOURCE", "local").strip().lower().replace("-", "_").replace(" ", "_")
     if mode == "service_account":
         from google.oauth2 import service_account
         creds = service_account.Credentials.from_service_account_info(json.loads(env["GOOGLE_SA_KEY"]), scopes=SCOPES)
@@ -134,7 +134,7 @@ def fetch_local(src, out):
 def fetch(out, env=os.environ, http=None):
     """Fetch into `out` (a fresh temp dir) according to ETL_SOURCE; returns the manifest."""
     out = Path(out)
-    mode = env.get("ETL_SOURCE", "local")
+    mode = env.get("ETL_SOURCE", "local").strip().lower().replace("-", "_").replace(" ", "_")   # tolerate 'Service account'
     if mode == "local":
         return fetch_local(env["ETL_LOCAL_DIR"], out)
     if mode not in ("oauth", "service_account"):
