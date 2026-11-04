@@ -14,11 +14,17 @@ drive only once everything works (step 5). The pipeline only reads; the companio
 3. Note the ID of the `overviews` folder from its URL (`…/folders/<FOLDER_ID>`). Everything the dashboard reads is in
    this folder: the overview docs and the people table (`ETL people`).
 
-## 2a. Access mode "oauth" (runs as you; default for TEST)
+## 2. Google access: use a service account (2b) unless you need to run as yourself
+
+The service account needs no OAuth consent screen: share the folder with its email like with a person. The OAuth
+route (2a) requires a published consent screen, because Drive read access is a restricted scope.
+
+## 2a. Access mode "oauth" (runs as you)
 
 1. <https://console.cloud.google.com> → new project `etl-dashboard` → *APIs & Services → Library* → enable **Google Drive API**.
-2. *OAuth consent screen*: External, app name `ETL dashboard`, your email; scope `…/auth/drive.readonly`; add yourself
-   as a test user. **Then click "Publish app" (status "In production")**. In "Testing" status the refresh token
+2. *OAuth consent screen* (Google Auth Platform): Audience External; Branding: app name `ETL dashboard` (no "Google"
+   in the name), **select** your address in the support-email dropdown, developer email, and leave all app-domain links
+   empty (otherwise Save stays disabled). Scope `…/auth/drive.readonly`; add yourself as a test user. **Then click "Publish app" (status "In production")**. In "Testing" status the refresh token
    expires after 7 days. An unverified app is fine for your own use (you click through one warning).
 3. *Credentials → Create credentials → OAuth client ID → Desktop app*; download the JSON.
 4. Get a refresh token once on your machine:
@@ -28,9 +34,11 @@ drive only once everything works (step 5). The pipeline only reads; the companio
    ```
    Keep `client.json` and the token out of the repository (e.g. in a password manager).
 
-## 2b. Access mode "service_account" (recommended for the shared drive)
+## 2b. Access mode "service_account" (recommended)
 
-1. Same Google Cloud project → *IAM & Admin → Service accounts → Create* `etl-dashboard-reader` (no roles).
+1. Google Cloud project with the **Google Drive API** enabled → *IAM & Admin → Service accounts → Create*
+   `etl-dashboard-reader` (no roles). If creating a key is blocked by an organization policy, use a project
+   without an organization (personal account) or ask the organization's admin.
 2. *Keys → Add key → JSON*, download it. Alternative without a long-lived key: Workload Identity Federation with
    GitHub OIDC (more setup).
 3. In Drive, share the overview folder with the service-account email as **Viewer**. On a
