@@ -1,7 +1,11 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "etl-dash"
 version = "0.1.0"
-description = "ETL project portfolio dashboard: parse project-overview docs + REMIND overviews sheet"
+description = "Password-protected dashboard of the ETL group project portfolio, built from the project-overview documents"
 requires-python = ">=3.11"
 dependencies = ["python-docx>=1.1", "openpyxl>=3.1", "cryptography>=42"]
 
@@ -9,7 +13,10 @@ dependencies = ["python-docx>=1.1", "openpyxl>=3.1", "cryptography>=42"]
 drive = ["google-auth>=2.30", "requests>=2.31"]
 dev = ["pytest>=8", "playwright>=1.45"]
 
+[tool.setuptools]
+packages = ["etl_dash", "etl_dash.sources"]   # web/, docs/, apps_script/ are not Python packages
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["real: runs against real local data (ETL_REAL_DOCS / ETL_REAL_SHEET); never in CI"]
+markers = ["real: runs against a real local overview folder (ETL_REAL_DOCS); never in CI"]
 addopts = "-m 'not real'"

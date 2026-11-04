@@ -10,7 +10,7 @@ on:
     - cron: "17 5 * * *"
   push:
     branches: [main]
-    paths: ["etl_dash/**", "web/**", ".github/workflows/deploy.yml"]
+    paths: ["etl_dash/**", "web/**", "pyproject.toml", ".github/workflows/deploy.yml"]
 permissions:
   contents: read
 concurrency:

@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: etl-dash
+Version: 0.1.0
+Summary: ETL project portfolio dashboard: parse project-overview docs + REMIND overviews sheet
+Requires-Python: >=3.11
+Requires-Dist: python-docx>=1.1
+Requires-Dist: openpyxl>=3.1
+Requires-Dist: cryptography>=42
+Provides-Extra: drive
+Requires-Dist: google-auth>=2.30; extra == "drive"
+Requires-Dist: requests>=2.31; extra == "drive"
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: playwright>=1.45; extra == "dev"
