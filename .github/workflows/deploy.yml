@@ -1,0 +1,62 @@
+# Fetch the overview docs + workbook from Google Drive, build the encrypted page, publish it on GitHub Pages.
+# Triggers: the Apps Script companion (on Drive changes / dashboard update button), daily fallback, code changes.
+# Logs are public: the pipeline prints counts only; no step may echo data or secrets.
+name: Sync and deploy
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [drive-changed]
+  schedule:
+    - cron: "17 5 * * *"
+  push:
+    branches: [main]
+    paths: ["etl_dash/**", "web/**", ".github/workflows/deploy.yml"]
+permissions:
+  contents: read
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    if: vars.ETL_SOURCE != ''   # skipped until the Drive access is configured (docs/setup-google.md)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4          # pin to commit SHAs when the repository is created
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,drive]"
+      - run: python -m playwright install --with-deps chromium
+      - name: Test gate (synthetic data only)
+        run: python -m pytest -q
+      - name: Sync from Google Drive and build
+        env:
+          ETL_SOURCE: ${{ vars.ETL_SOURCE }}                      # oauth | service_account
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+          DRIVE_EDIT_LOG_ID: ${{ secrets.DRIVE_EDIT_LOG_ID }}      # optional: the companion's edit-log sheet (Change log tab)
+          GOOGLE_OAUTH_CLIENT_JSON: ${{ secrets.GOOGLE_OAUTH_CLIENT_JSON }}
+          GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+          GOOGLE_SA_KEY: ${{ secrets.GOOGLE_SA_KEY }}
+          ETL_VIEWER_PASSWORD: ${{ secrets.ETL_VIEWER_PASSWORD }}
+          ETL_ADMIN_PASSWORD: ${{ secrets.ETL_ADMIN_PASSWORD }}
+          ETL_TEST_PASSWORD: ${{ secrets.ETL_TEST_PASSWORD }}     # optional: hidden test mode with made-up data
+          ETL_UPDATE_URL: ${{ vars.ETL_UPDATE_URL }}              # optional: Apps Script web-app URL (update button)
+          ETL_UPDATE_KEY: ${{ secrets.ETL_UPDATE_KEY }}
+          ETL_EDIT_KEY: ${{ secrets.ETL_EDIT_KEY }}                 # optional: corrections / new projects (admin)
+          SHORT: ${{ vars.ALLOW_SHORT_PASSWORDS == 'true' && '--allow-short-passwords' || '' }}
+        run: python -m etl_dash sync --out dist $SHORT
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

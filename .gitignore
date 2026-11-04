@@ -1,0 +1,19 @@
+# Real project data must never enter this public repo.
+# Real sources live OUTSIDE the repo (e.g. ../tmp_source, ../test_structure) and are passed as CLI arguments.
+*.docx
+*.xlsx
+*.pdf
+out/
+local/
+dist/
+*.json
+!tests/**/*.json
+!apps_script/appsscript.json
+.env
+*.secret
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

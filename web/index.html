@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="__CSP__">
+<title>ETL Project Portfolio</title>
+<style>__CSS__</style>
+</head>
+<body>
+<div id="login" class="login">
+  <form id="login-form" class="login-card" autocomplete="off">
+    <h1>ETL Project Portfolio</h1>
+    <p>Energy Transition Lab · internal. Enter the access password.</p>
+    <label for="password">Password</label>
+    <input id="password" type="password" required autofocus autocomplete="current-password">
+    <button class="btn" type="submit">Unlock</button>
+    <div id="login-error" class="error" role="alert" aria-live="polite"></div>
+  </form>
+</div>
+<div id="app" hidden>
+  <div id="mode-banner" class="test-banner" role="status" hidden></div>
+  <header class="topbar">
+    <div class="topbar-row">
+      <span class="brand">ETL Project Portfolio<small>Energy Transition Lab</small></span>
+      <span class="meta" id="built"></span>
+      <span class="badge" id="role"></span>
+      <button class="ghost" id="update" type="button" hidden>Update data</button>
+      <button class="ghost" id="theme" type="button" title="Switch light / dark">Theme</button>
+      <button class="ghost" id="logout" type="button">Log out</button>
+    </div>
+    <nav class="tabs" aria-label="Views">
+      <a href="#/overview" data-view="overview">Overview</a>
+      <a href="#/demands" data-view="demands">Demands by group</a>
+      <a href="#/timeline" data-view="timeline">Timeline</a>
+      <a href="#/projects" data-view="projects">Projects</a>
+      <a href="#/people" data-view="people">People</a>
+      <a href="#/info" data-view="info">Review</a>
+      <a href="#/log" data-view="log" id="log-tab" hidden>Change log</a>
+    </nav>
+  </header>
+  <div class="filters" id="filters"></div>
+  <main id="view" tabindex="-1"></main>
+</div>
+<div id="drawer" hidden></div>
+<div id="tooltip" class="tooltip" role="tooltip" hidden></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<script type="application/json" id="payload">__PAYLOAD__</script>
+<script>__JS__</script>
+</body>
+</html>
