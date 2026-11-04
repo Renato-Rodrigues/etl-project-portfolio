@@ -115,6 +115,8 @@ def publish(data, test, passwords, site, report, allow_short):
     # corrections: the edit key lives only in the admin-encrypted block (viewers never get it). The test mode gets
     # its OWN key, which the server maps to the test folder only – it can never write to the real documents.
     admin = {"edit_key": os.environ["ETL_EDIT_KEY"]} if update and os.environ.get("ETL_EDIT_KEY") else {}
+    if update and not admin:
+        notice("warning", "Website editing is OFF: missing ETL_EDIT_KEY (secret); the update button works")
     log = data.pop("edit_log", None)
     if log is not None:  # the change log: admins only (it names editors and shows old values)
         admin["log"] = log
